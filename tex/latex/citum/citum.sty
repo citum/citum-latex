@@ -211,8 +211,14 @@
     {\citum@multicite@item@opt{#1}}%
     {\@ifnextchar\bgroup%
        {\citum@multicite@item@key{#1}}%
-       {#1}%
+       {\citum@multicite@end{#1}}%
     }%
+}
+% \@ifnextchar eats the space before the following word; restore it here
+% unless the next token is punctuation (mirrors xspace behaviour).
+\def\citum@multicite@end#1{%
+  {#1}%
+  \@ifnextchar.{}{\@ifnextchar,{}{\@ifnextchar;{}{\@ifnextchar:{}{\@ifnextchar!{}{\@ifnextchar?{}{ }}}}}}%
 }
 \def\citum@multicite@item@opt#1[#2]{%
   \@ifnextchar[%

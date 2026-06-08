@@ -1,0 +1,10 @@
+*.aux
+*.log
+*.out
+*.pdf
+*.toc
+*.citum.json
+*.citum_request.json
+*.citum_response.json
+*.citum_server.txt
+*.citum_rpc_in.json

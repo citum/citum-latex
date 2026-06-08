@@ -13,6 +13,11 @@ The parenthetical aliases also work \parencite{smith2020}.
 Autocite maps to the same non-integral citation path \autocite[p.~7]{smith2020}.
 Footcite places the rendered citation in a footnote\footcite{smith2020}.
 
+Single cite with prefix and locator: \cite[see][p.~12]{smith2020}.
+Single cite with empty prefix and custom suffix: \cite[][(with caveats)]{smith2020}.
+Multicite with per-item options: \cites[see][p.~42]{smith2020}[also][ch.~2]{smith2020}.
+Multicite with global pre/postnotes: \cites(compare)(for context){smith2020}.
+
 \printbibliography
 
 \end{document}

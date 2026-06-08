@@ -98,22 +98,38 @@
 
 \AtEndDocument{\directlua{citum__at_end_hook()}}
 
-\DeclareRobustCommand{\cite}[2][]{%
-  \directlua{citum_module.cite_single(citum_proc,
-    "\luaescapestring{#1}", "\luaescapestring{#2}")}%
+\DeclareRobustCommand{\cite}[1][]{%
+  \@ifnextchar[%
+    {\citum@cite@double[#1]}%
+    {\citum@cite@single[#1]}%
+}
+\def\citum@cite@single[#1]#2{%
+  \directlua{citum_module.cite_single(citum_proc, nil, "\luaescapestring{#1}", "\luaescapestring{#2}")}%
+}
+\def\citum@cite@double[#1][#2]#3{%
+  \directlua{citum_module.cite_single(citum_proc, "\luaescapestring{#1}", "\luaescapestring{#2}", "\luaescapestring{#3}")}%
 }
 
-\DeclareRobustCommand{\textcite}[2][]{%
-  \directlua{citum_module.textcite_single(citum_proc,
-    "\luaescapestring{#1}", "\luaescapestring{#2}")}%
+\DeclareRobustCommand{\textcite}[1][]{%
+  \@ifnextchar[%
+    {\citum@textcite@double[#1]}%
+    {\citum@textcite@single[#1]}%
+}
+\def\citum@textcite@single[#1]#2{%
+  \directlua{citum_module.textcite_single(citum_proc, nil, "\luaescapestring{#1}", "\luaescapestring{#2}")}%
+}
+\def\citum@textcite@double[#1][#2]#3{%
+  \directlua{citum_module.textcite_single(citum_proc, "\luaescapestring{#1}", "\luaescapestring{#2}", "\luaescapestring{#3}")}%
 }
 
-\newcommand{\cites}[1]{%
-  \directlua{citum_module.cite_keys(citum_proc, "\luaescapestring{#1}")}%
+\DeclareRobustCommand{\cites}{%
+  \directlua{citum_module.multicite_start()}%
+  \citum@multicite@global@check{\directlua{citum_module.multicite_flush(citum_proc, false, false)}}%
 }
 
-\newcommand{\textcites}[1]{%
-  \directlua{citum_module.textcite_keys(citum_proc, "\luaescapestring{#1}")}%
+\DeclareRobustCommand{\textcites}{%
+  \directlua{citum_module.multicite_start()}%
+  \citum@multicite@global@check{\directlua{citum_module.multicite_flush(citum_proc, true, false)}}%
 }
 
 \newcommand{\citestart}{%
@@ -132,22 +148,38 @@
   \directlua{citum_module.cites_flush_integral(citum_proc)}%
 }
 
-\newcommand{\Cite}[2][]{%
-  \directlua{citum_module.Cite_single(citum_proc,
-    "\luaescapestring{#1}", "\luaescapestring{#2}")}%
+\DeclareRobustCommand{\Cite}[1][]{%
+  \@ifnextchar[%
+    {\citum@Cite@double[#1]}%
+    {\citum@Cite@single[#1]}%
+}
+\def\citum@Cite@single[#1]#2{%
+  \directlua{citum_module.Cite_single(citum_proc, nil, "\luaescapestring{#1}", "\luaescapestring{#2}")}%
+}
+\def\citum@Cite@double[#1][#2]#3{%
+  \directlua{citum_module.Cite_single(citum_proc, "\luaescapestring{#1}", "\luaescapestring{#2}", "\luaescapestring{#3}")}%
 }
 
-\newcommand{\Textcite}[2][]{%
-  \directlua{citum_module.Textcite_single(citum_proc,
-    "\luaescapestring{#1}", "\luaescapestring{#2}")}%
+\DeclareRobustCommand{\Textcite}[1][]{%
+  \@ifnextchar[%
+    {\citum@Textcite@double[#1]}%
+    {\citum@Textcite@single[#1]}%
+}
+\def\citum@Textcite@single[#1]#2{%
+  \directlua{citum_module.Textcite_single(citum_proc, nil, "\luaescapestring{#1}", "\luaescapestring{#2}")}%
+}
+\def\citum@Textcite@double[#1][#2]#3{%
+  \directlua{citum_module.Textcite_single(citum_proc, "\luaescapestring{#1}", "\luaescapestring{#2}", "\luaescapestring{#3}")}%
 }
 
-\newcommand{\Cites}[1]{%
-  \directlua{citum_module.Cite_keys(citum_proc, "\luaescapestring{#1}")}%
+\DeclareRobustCommand{\Cites}{%
+  \directlua{citum_module.multicite_start()}%
+  \citum@multicite@global@check{\directlua{citum_module.multicite_flush(citum_proc, false, true)}}%
 }
 
-\newcommand{\Textcites}[1]{%
-  \directlua{citum_module.Textcite_keys(citum_proc, "\luaescapestring{#1}")}%
+\DeclareRobustCommand{\Textcites}{%
+  \directlua{citum_module.multicite_start()}%
+  \citum@multicite@global@check{\directlua{citum_module.multicite_flush(citum_proc, true, true)}}%
 }
 
 \newcommand{\Citeend}{%
@@ -156,6 +188,48 @@
 
 \newcommand{\Textciteend}{%
   \directlua{citum_module.cites_flush_integral_sentence_start(citum_proc)}%
+}
+
+% Multicite scanning engine
+\def\citum@multicite@global@check#1{%
+  \@ifnextchar(%
+    {\citum@multicite@global@one{#1}}%
+    {\citum@multicite@loop{#1}}%
+}
+\def\citum@multicite@global@one#1(#2){%
+  \@ifnextchar(%
+    {\citum@multicite@global@two{#1}(#2)}%
+    {\directlua{citum_module.multicite_global(nil, "\luaescapestring{#2}")}%
+     \citum@multicite@loop{#1}}%
+}
+\def\citum@multicite@global@two#1(#2)(#3){%
+  \directlua{citum_module.multicite_global("\luaescapestring{#2}", "\luaescapestring{#3}")}%
+  \citum@multicite@loop{#1}%
+}
+\def\citum@multicite@loop#1{%
+  \@ifnextchar[%
+    {\citum@multicite@item@opt{#1}}%
+    {\@ifnextchar\bgroup%
+       {\citum@multicite@item@key{#1}}%
+       {#1}%
+    }%
+}
+\def\citum@multicite@item@opt#1[#2]{%
+  \@ifnextchar[%
+    {\citum@multicite@item@double{#1}[#2]}%
+    {\citum@multicite@item@single{#1}[#2]}%
+}
+\def\citum@multicite@item@single#1[#2]#3{%
+  \directlua{citum_module.multicite_add(nil, "\luaescapestring{#2}", "\luaescapestring{#3}")}%
+  \citum@multicite@loop{#1}%
+}
+\def\citum@multicite@item@double#1[#2][#3]#4{%
+  \directlua{citum_module.multicite_add("\luaescapestring{#2}", "\luaescapestring{#3}", "\luaescapestring{#4}")}%
+  \citum@multicite@loop{#1}%
+}
+\def\citum@multicite@item@key#1#2{%
+  \directlua{citum_module.multicite_add(nil, nil, "\luaescapestring{#2}")}%
+  \citum@multicite@loop{#1}%
 }
 
 \newcommand{\citumsetup}[1]{%

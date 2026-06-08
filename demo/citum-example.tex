@@ -119,21 +119,17 @@ Parallel observations emerge from Spanish-language scholarship
 \section{Complex grouped citations}
 % -----------------------------------------------------------------------
 
-For citations with per-item locators or prefixes, use the
-\verb|\citestart| / \verb|\citeitem| / \verb|\citeend| block:
+For citations with per-item locators or prefixes, use the standard multi-citation
+commands: \cites[see]{chen2017}[also]{okafor2024}
+
+Integral grouped citations use \verb|\textcites|: \textcites{chen2017}{chen2020} have both contributed to this line of inquiry.
+
+Alternatively, you can also use the legacy \verb|\citestart| / \verb|\citeitem| / \verb|\citeend| block format:
 
 \citestart
   \citeitem[see]{chen2017}
   \citeitem[also]{okafor2024}
 \citeend
-
-Integral grouped citations use \verb|\textciteend| to close:
-
-\citestart
-  \citeitem{chen2017}
-  \citeitem{chen2020}
-\textciteend
-have both contributed to this line of inquiry.
 
 % -----------------------------------------------------------------------
 \section{Bibliography}

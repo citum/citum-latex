@@ -186,15 +186,29 @@ function CITUM.split_keys(s)
     return keys
 end
 
-CITUM.cites_items = {}
-
-local function make_citation_item(raw_loc, key)
-    local label, locator = CITUM.parse_locator(raw_loc)
+local function make_citation_item_detailed(prenote, postnote, key)
     local item = { id = key }
-    if label and locator then
-        item.locator = { label = label, value = locator }
-    elseif locator then
-        item.prefix = locator
+    if prenote ~= nil then
+        if prenote ~= "" then
+            item.prefix = prenote
+        end
+        if postnote and postnote ~= "" then
+            local label, locator = CITUM.parse_locator(postnote)
+            if label and locator then
+                item.locator = { label = label, value = locator }
+            else
+                item.suffix = postnote
+            end
+        end
+    else
+        if postnote and postnote ~= "" then
+            local label, locator = CITUM.parse_locator(postnote)
+            if label and locator then
+                item.locator = { label = label, value = locator }
+            else
+                item.prefix = postnote
+            end
+        end
     end
     return item
 end
@@ -204,7 +218,7 @@ function CITUM.cites_start()
 end
 
 function CITUM.cites_add(raw_loc, key)
-    table.insert(CITUM.cites_items, make_citation_item(raw_loc, key))
+    table.insert(CITUM.cites_items, make_citation_item_detailed(nil, raw_loc, key))
 end
 
 function CITUM.cites_flush(_proc)
@@ -223,22 +237,22 @@ function CITUM.cites_flush_integral_sentence_start(_proc)
     CITUM.record_cite({ mode = "integral", sentence_start = true, items = CITUM.cites_items })
 end
 
-function CITUM.cite_single(_proc, raw_loc, key)
-    CITUM.record_cite({ items = { make_citation_item(raw_loc, key) } })
+function CITUM.cite_single(_proc, prenote, postnote, key)
+    CITUM.record_cite({ items = { make_citation_item_detailed(prenote, postnote, key) } })
 end
 
-function CITUM.textcite_single(_proc, raw_loc, key)
-    CITUM.record_cite({ mode = "integral", items = { make_citation_item(raw_loc, key) } })
+function CITUM.textcite_single(_proc, prenote, postnote, key)
+    CITUM.record_cite({ mode = "integral", items = { make_citation_item_detailed(prenote, postnote, key) } })
 end
 
-function CITUM.Cite_single(proc, raw_loc, key)
-    CITUM.cite_single(proc, raw_loc, key)
+function CITUM.Cite_single(proc, prenote, postnote, key)
+    CITUM.cite_single(proc, prenote, postnote, key)
     local c = CITUM.document_citations[#CITUM.document_citations]
     c.sentence_start = true
 end
 
-function CITUM.Textcite_single(proc, raw_loc, key)
-    CITUM.textcite_single(proc, raw_loc, key)
+function CITUM.Textcite_single(proc, prenote, postnote, key)
+    CITUM.textcite_single(proc, prenote, postnote, key)
     local c = CITUM.document_citations[#CITUM.document_citations]
     c.sentence_start = true
 end
@@ -269,6 +283,48 @@ function CITUM.Textcite_keys(proc, keys_str)
     CITUM.textcite_keys(proc, keys_str)
     local c = CITUM.document_citations[#CITUM.document_citations]
     c.sentence_start = true
+end
+
+CITUM.multicite_items = {}
+CITUM.multicite_global_prefix = nil
+CITUM.multicite_global_suffix = nil
+
+function CITUM.multicite_start()
+    CITUM.multicite_items = {}
+    CITUM.multicite_global_prefix = nil
+    CITUM.multicite_global_suffix = nil
+end
+
+function CITUM.multicite_global(pre, post)
+    CITUM.multicite_global_prefix = pre
+    CITUM.multicite_global_suffix = post
+end
+
+function CITUM.multicite_add(prenote, postnote, key)
+    if key:find(",") then
+        for subkey in key:gmatch("[^,%s]+") do
+            table.insert(CITUM.multicite_items, make_citation_item_detailed(prenote, postnote, subkey))
+        end
+    else
+        table.insert(CITUM.multicite_items, make_citation_item_detailed(prenote, postnote, key))
+    end
+end
+
+function CITUM.multicite_flush(_proc, is_integral, sentence_start)
+    local cite_opts = { items = CITUM.multicite_items }
+    if is_integral then
+        cite_opts.mode = "integral"
+    end
+    if sentence_start then
+        cite_opts.sentence_start = true
+    end
+    if CITUM.multicite_global_prefix and CITUM.multicite_global_prefix ~= "" then
+        cite_opts.prefix = CITUM.multicite_global_prefix
+    end
+    if CITUM.multicite_global_suffix and CITUM.multicite_global_suffix ~= "" then
+        cite_opts.suffix = CITUM.multicite_global_suffix
+    end
+    CITUM.record_cite(cite_opts)
 end
 
 local function parse_bibliography_filter(opts)

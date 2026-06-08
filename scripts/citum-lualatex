@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+PASSES=2
+SERVER="${CITUM_SERVER_PATH:-}"
+SHELL_ESCAPE=0
+OUTPUT_DIRECTORY=""
+DOC=""
+
+usage() {
+  cat <<'USAGE'
+Usage: scripts/citum-lualatex [options] document.tex
+
+Options:
+  --server PATH            Path to citum-server
+  --passes N               Number of LuaLaTeX passes (default: 2)
+  --shell-escape           Let LuaLaTeX spawn citum-server directly
+  --output-directory DIR   Pass an output directory to LuaLaTeX
+  -h, --help               Show this help
+
+By default this script uses the external backend: LuaLaTeX writes
+JOB.citum_request.json, this script runs citum-server, and the next pass reads
+JOB.citum_response.json. Use --shell-escape for the direct pipe backend.
+USAGE
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --server)
+      SERVER="${2:?missing server path}"
+      shift 2
+      ;;
+    --passes)
+      PASSES="${2:?missing pass count}"
+      shift 2
+      ;;
+    --shell-escape)
+      SHELL_ESCAPE=1
+      shift
+      ;;
+    --output-directory)
+      OUTPUT_DIRECTORY="${2:?missing output directory}"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -*)
+      echo "error: unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+    *)
+      if [ -n "$DOC" ]; then
+        echo "error: multiple documents supplied" >&2
+        usage >&2
+        exit 2
+      fi
+      DOC="$1"
+      shift
+      ;;
+  esac
+done
+
+if [ -z "$DOC" ]; then
+  echo "error: document.tex is required" >&2
+  usage >&2
+  exit 2
+fi
+
+if ! command -v lualatex >/dev/null 2>&1; then
+  echo "error: lualatex not found on PATH" >&2
+  exit 1
+fi
+
+if [ -z "$SERVER" ]; then
+  if command -v citum-server >/dev/null 2>&1; then
+    SERVER="citum-server"
+  else
+    echo "error: citum-server not found. Set CITUM_SERVER_PATH or use --server PATH." >&2
+    exit 1
+  fi
+fi
+
+if [[ "$SERVER" == */* ]]; then
+  if [ ! -x "$SERVER" ]; then
+    echo "error: citum-server is not executable: $SERVER" >&2
+    exit 1
+  fi
+elif ! command -v "$SERVER" >/dev/null 2>&1; then
+  echo "error: citum-server not found on PATH: $SERVER" >&2
+  exit 1
+fi
+
+DOC_DIR="$(cd "$(dirname "$DOC")" && pwd)"
+DOC_FILE="$(basename "$DOC")"
+JOBNAME="${DOC_FILE%.*}"
+
+export CITUM_SERVER_PATH="$SERVER"
+export TEXINPUTS="$REPO_ROOT/tex/latex/citum:$DOC_DIR:${TEXINPUTS:-}"
+export LUAINPUTS="$REPO_ROOT/lua/citum:$DOC_DIR:${LUAINPUTS:-}"
+export CITUM_LUA_PATH="$REPO_ROOT/lua/citum/citum.lua"
+
+LATEX_ARGS=(--interaction=nonstopmode)
+if [ -n "$OUTPUT_DIRECTORY" ]; then
+  mkdir -p "$OUTPUT_DIRECTORY"
+  OUTPUT_DIRECTORY="$(cd "$OUTPUT_DIRECTORY" && pwd)"
+  LATEX_ARGS+=("--output-directory=$OUTPUT_DIRECTORY")
+fi
+if [ "$SHELL_ESCAPE" -eq 1 ]; then
+  export CITUM_BACKEND=pipe
+  LATEX_ARGS+=(--shell-escape)
+else
+  export CITUM_BACKEND=external
+fi
+
+cd "$DOC_DIR"
+echo "backend : $CITUM_BACKEND"
+echo "server  : $CITUM_SERVER_PATH"
+echo "document: $DOC_FILE"
+
+for pass in $(seq 1 "$PASSES"); do
+  echo "pass $pass..."
+  lualatex "${LATEX_ARGS[@]}" "$DOC_FILE"
+
+  if [ "$CITUM_BACKEND" = "external" ]; then
+    REQUEST="$JOBNAME.citum_request.json"
+    RESPONSE="$JOBNAME.citum_response.json"
+    if [ -f "$REQUEST" ]; then
+      "$SERVER" < "$REQUEST" > "$RESPONSE"
+    else
+      echo "warning: no Citum request file produced: $REQUEST" >&2
+    fi
+  fi
+done
+
+echo "done"

@@ -1,0 +1,154 @@
+% citum-example.tex -- Feature demonstration of the Citum LuaLaTeX package
+%
+% NOTE: This is an entirely artificial document created for feature illustration.
+% All arguments, references, and authors are fabricated. No scholarly claims are made.
+%
+% Usage:
+%   ../scripts/citum-lualatex citum-example.tex
+%
+% The package is pipe-only: LuaLaTeX records a format_document JSON-RPC request
+% per pass. The compile script runs citum-server externally by default; pass
+% --shell-escape to let LuaLaTeX spawn citum-server directly.
+%
+% For multilingual entries (Japanese, Spanish) full Unicode rendering requires
+% appropriate fonts. The data model is correct regardless; install e.g. Noto fonts
+% and set them via \setmainfont / \newfontfamily as needed.
+
+\documentclass{article}
+\usepackage[margin=1.2in]{geometry}
+\usepackage{fontspec}
+\usepackage{hyperref}
+
+% Load the Citum citation package.
+%   style   = path to a Citum YAML style file (see demo/ for apa-7th.yaml)
+%   bibfile = path to a Citum YAML bibliography
+%   locale  = optional BCP 47 locale tag
+%   server  = optional explicit path to citum-server binary (pipe transport)
+\usepackage[
+    style   = apa-7th,
+    bibfile = example-refs,
+    % locale  = en-US,
+    % server  = /usr/local/bin/citum-server,
+]{citum}
+
+\title{The Infrastructure of Scholarly Memory\\
+       {\large A Citum Lua\LaTeX{} Feature Demonstration}}
+\author{Citum}
+\date{2026}
+
+\begin{document}
+
+\maketitle
+
+% -----------------------------------------------------------------------
+\section{Introduction: citation as institution}
+% -----------------------------------------------------------------------
+
+Scholarly citation serves as the primary mechanism through which academic
+knowledge is organized, attributed, and transmitted.
+As \textcite{chen2017} has argued, the practices surrounding citation
+reflect deeper epistemological commitments about what counts as knowledge
+and who produces it.
+The formal apparatus of bibliographic reference --- the footnote, the
+parenthetical, the numbered list --- constitutes what \textcite{webb1968}
+called ``the footnote as institution,'' embedding social relations within
+the seemingly neutral mechanics of scholarly communication.
+
+% -----------------------------------------------------------------------
+\section{Non-integral citations with locators}
+% -----------------------------------------------------------------------
+
+Non-integral (parenthetical) citations are produced with \verb|\cite|.
+A bare key places author and year in parentheses \cite{chen2017}.
+Optional locators follow the usual prefix convention:
+
+\begin{itemize}
+  \item Page: \cite[p.~42]{chen2017}
+  \item Chapter: \cite[ch.~3]{webb1968}
+  \item Section: \cite[sect.~2]{okafor2024}
+\end{itemize}
+
+Multiple keys in a single parenthetical use \verb|\cites|:
+\cites{chen2017, okafor2024}.
+
+% -----------------------------------------------------------------------
+\section{Integral (narrative) citations}
+% -----------------------------------------------------------------------
+
+Integral citations are produced with \verb|\textcite|, which places the
+author name grammatically in the sentence and appends the year in parentheses.
+
+\textcite{okafor2024} provide large-scale empirical support for this view,
+showing through computational analysis that topological centrality in citation
+networks correlates more strongly with institutional affiliation than with
+measured scholarly impact.
+
+\textcite[ch.~2]{chen2020} extends the analysis to the digital transition,
+arguing that platform architectures reproduce existing hierarchies of
+credibility.
+% Note: same author as chen2017. In author-date styles both entries are
+% disambiguated by year. In note-based styles, name memory abbreviates the
+% second citation to the short form.
+
+% -----------------------------------------------------------------------
+\section{Archival and non-standard sources}
+% -----------------------------------------------------------------------
+
+Citum's \texttt{archive-info} field models collection hierarchy and shelfmark.
+The date \texttt{"1891?"} is an EDTF Level~1 uncertain date, which renders
+as ``1891?'' in APA and as ``um~1891'' in a German locale.
+
+\textcite{harrington1891} observed --- in manuscript notes preserved at the
+British Library --- that bibliographic method was already contested among
+Victorian scholars of natural history \cite[ff.~12--15]{harrington1891}.
+
+% -----------------------------------------------------------------------
+\section{Multilingual sources and EDTF approximate dates}
+% -----------------------------------------------------------------------
+
+The production of scholarly citation apparatus is not confined to Anglophone
+contexts.
+\textcite{tanaka_yuki2019} demonstrate that citation practices in Japanese
+science studies reflect distinct epistemological conventions.
+Parallel observations emerge from Spanish-language scholarship
+\cite{garcia2022}.
+% garcia2022 uses EDTF "2022~" (approximate date), which renders as
+% "ca.~2022" in en-US and as "vers~2022" in fr-FR.
+
+% -----------------------------------------------------------------------
+\section{Complex grouped citations}
+% -----------------------------------------------------------------------
+
+For citations with per-item locators or prefixes, use the
+\verb|\citestart| / \verb|\citeitem| / \verb|\citeend| block:
+
+\citestart
+  \citeitem[see]{chen2017}
+  \citeitem[also]{okafor2024}
+\citeend
+
+Integral grouped citations use \verb|\textciteend| to close:
+
+\citestart
+  \citeitem{chen2017}
+  \citeitem{chen2020}
+\textciteend
+have both contributed to this line of inquiry.
+
+% -----------------------------------------------------------------------
+\section{Bibliography}
+% -----------------------------------------------------------------------
+
+% Bibliography is split by entry type, mirroring the HTML demo:
+%   type=manuscript    → primary sources (harrington1891)
+%   not-type=manuscript → secondary sources (all others)
+
+\subsection*{Primary Sources}
+\addcontentsline{toc}{subsection}{Primary Sources}
+\printcitumbibliography[type=manuscript]
+
+\subsection*{Secondary Sources}
+\addcontentsline{toc}{subsection}{Secondary Sources}
+\printcitumbibliography[not-type=manuscript]
+
+\end{document}

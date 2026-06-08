@@ -1,0 +1,18 @@
+\documentclass{article}
+\usepackage{fontspec}
+\usepackage[
+  style=../demo/apa-7th
+]{citum}
+
+\addbibresource{refs.bib}
+
+\begin{document}
+
+\textcite{smith2020} anchors the claim.
+The parenthetical aliases also work \parencite{smith2020}.
+Autocite maps to the same non-integral citation path \autocite[p.~7]{smith2020}.
+Footcite places the rendered citation in a footnote\footcite{smith2020}.
+
+\printbibliography
+
+\end{document}

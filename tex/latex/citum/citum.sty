@@ -1,0 +1,178 @@
+% citum.sty -- Citum citation processor for LuaLaTeX
+%
+% SPDX-License-Identifier: MIT OR Apache-2.0
+%
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{citum}[2026/06/08 v0.3.0 Citum citation processor]
+
+\RequirePackage{kvoptions}
+\RequirePackage{etoolbox}
+
+\ifx\directlua\undefined
+  \PackageError{citum}{citum requires LuaLaTeX}{Compile this document with lualatex.}
+\fi
+
+\SetupKeyvalOptions{family=citum,prefix=citum@}
+\DeclareStringOption[apa-7th]{style}
+\DeclareStringOption{bibfile}
+\DeclareStringOption{locale}
+\DeclareStringOption{server}
+\DeclareStringOption{backend}
+\ProcessKeyvalOptions*
+
+\directlua{
+  local function path_dir(path)
+    return path and path:match("(.*[/\\])") or nil
+  end
+
+  local function prepend_package_path(dir)
+    if dir and dir ~= "" then
+      package.path = dir .. "?.lua;" .. dir .. "?/init.lua;" .. package.path
+    end
+  end
+
+  local function find_citum_lua()
+    local env = os.getenv("CITUM_LUA_PATH")
+    if env and env ~= "" then return env end
+
+    local sty_path = kpse.find_file("citum.sty", "tex") or ""
+    local sty_dir = path_dir(sty_path)
+    if sty_dir then
+      local candidates = {
+        sty_dir .. "citum.lua",
+        sty_dir .. "../../../lua/citum/citum.lua",
+        sty_dir .. "../../lua/citum/citum.lua",
+      }
+      for _, candidate in ipairs(candidates) do
+        if lfs.attributes(candidate) then return candidate end
+      end
+    end
+
+    return kpse.find_file("citum.lua", "lua")
+  end
+
+  local citum_lua = find_citum_lua()
+  if not citum_lua then
+    error("citum.sty: cannot find citum.lua. Set CITUM_LUA_PATH or install citum.lua with citum.sty.")
+  end
+
+  prepend_package_path(path_dir(citum_lua))
+  local ok, result = pcall(dofile, citum_lua)
+  if not ok then
+    error("citum.sty: failed to load citum.lua: " .. tostring(result))
+  end
+  citum_module = result
+
+  local function resolve_file(name, default_ext)
+    if not name or name == "" then return "" end
+    local direct = kpse.find_file(name)
+    if direct then return direct end
+    local with_ext = kpse.find_file(name .. default_ext)
+    if with_ext then return with_ext end
+    local f = io.open(name, "r")
+    if f then f:close(); return name end
+    f = io.open(name .. default_ext, "r")
+    if f then f:close(); return name .. default_ext end
+    return name
+  end
+
+  citum_resolve_file = resolve_file
+  citum_style_path = resolve_file("\citum@style", ".yaml")
+  citum_bib_path = resolve_file("\citum@bibfile", ".yaml")
+  citum_proc = citum_module.init_processor(
+    citum_style_path, citum_bib_path, "\citum@locale", "\jobname", "\citum@server", "\citum@backend"
+  )
+
+  at_end_document_hook = function()
+    citum_module.process_document(citum_proc, citum_style_path, citum_bib_path, "\citum@locale")
+  end
+}
+
+\AtEndDocument{\directlua{at_end_document_hook()}}
+
+\renewcommand{\cite}[2][]{%
+  \directlua{citum_module.cite_single(citum_proc,
+    "\luaescapestring{#1}", "\luaescapestring{#2}")}%
+}
+
+\newcommand{\textcite}[2][]{%
+  \directlua{citum_module.textcite_single(citum_proc,
+    "\luaescapestring{#1}", "\luaescapestring{#2}")}%
+}
+
+\newcommand{\cites}[1]{%
+  \directlua{citum_module.cite_keys(citum_proc, "\luaescapestring{#1}")}%
+}
+
+\newcommand{\textcites}[1]{%
+  \directlua{citum_module.textcite_keys(citum_proc, "\luaescapestring{#1}")}%
+}
+
+\newcommand{\citestart}{%
+  \directlua{citum_module.cites_start()}%
+}
+
+\newcommand{\citeitem}[2][]{%
+  \directlua{citum_module.cites_add("\luaescapestring{#1}", "\luaescapestring{#2}")}%
+}
+
+\newcommand{\citeend}{%
+  \directlua{citum_module.cites_flush(citum_proc)}%
+}
+
+\newcommand{\textciteend}{%
+  \directlua{citum_module.cites_flush_integral(citum_proc)}%
+}
+
+\newcommand{\Cite}[2][]{%
+  \directlua{citum_module.Cite_single(citum_proc,
+    "\luaescapestring{#1}", "\luaescapestring{#2}")}%
+}
+
+\newcommand{\Textcite}[2][]{%
+  \directlua{citum_module.Textcite_single(citum_proc,
+    "\luaescapestring{#1}", "\luaescapestring{#2}")}%
+}
+
+\newcommand{\Cites}[1]{%
+  \directlua{citum_module.Cite_keys(citum_proc, "\luaescapestring{#1}")}%
+}
+
+\newcommand{\Textcites}[1]{%
+  \directlua{citum_module.Textcite_keys(citum_proc, "\luaescapestring{#1}")}%
+}
+
+\newcommand{\Citeend}{%
+  \directlua{citum_module.cites_flush_sentence_start(citum_proc)}%
+}
+
+\newcommand{\Textciteend}{%
+  \directlua{citum_module.cites_flush_integral_sentence_start(citum_proc)}%
+}
+
+\newcommand{\citumsetup}[1]{%
+  \setkeys{citum}{#1}%
+  \directlua{
+    citum_style_path = citum_resolve_file("\citum@style", ".yaml")
+    citum_bib_path = citum_resolve_file("\citum@bibfile", ".yaml")
+    citum_proc = citum_module.init_processor(
+      citum_style_path, citum_bib_path, "\citum@locale", "\jobname", "\citum@server", "\citum@backend"
+    )
+    at_end_document_hook = function()
+      citum_module.process_document(citum_proc, citum_style_path, citum_bib_path, "\citum@locale")
+    end
+  }%
+}
+
+\newcommand{\printcitumbibliography}[1][]{%
+  \par\vspace{\baselineskip}%
+  \directlua{citum_module.print_bibliography(citum_proc, "\luaescapestring{#1}")}%
+}
+
+\providecommand{\addbibresource}[2][]{\citumsetup{bibfile=#2}}
+\providecommand{\printbibliography}[1][]{\printcitumbibliography[#1]}
+\providecommand{\parencite}[2][]{\cite[#1]{#2}}
+\providecommand{\autocite}[2][]{\cite[#1]{#2}}
+\providecommand{\footcite}[2][]{\footnote{\cite[#1]{#2}}}
+
+\endinput
